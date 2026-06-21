@@ -1,0 +1,29 @@
+{
+  "rounds": [
+    {
+      "round": 1,
+      "matches": [
+        {"id": 1, "home": "한국", "away": "일본"},
+        {"id": 2, "home": "브라질", "away": "아르헨티나"},
+        {"id": 3, "home": "독일", "away": "프랑스"},
+        {"id": 4, "home": "스페인", "away": "영국"}
+      ]
+    },
+    {
+      "round": 2,
+      "matches": [
+        {"id": 5, "home": "한국", "away": "브라질"},
+        {"id": 6, "home": "아르헨티나", "away": "독일"},
+        {"id": 7, "home": "프랑스", "away": "스페인"},
+        {"id": 8, "home": "영국", "away": "일본"}
+      ]
+    },
+    {
+      "round": 3,
+      "matches": [
+        {"id": 9,  "home": "독일", "away": "한국"},
+        {"id": 10, "home": "브라질", "away": "스페인"}
+      ]
+    }
+  ]
+}
