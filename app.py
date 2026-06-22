@@ -14,7 +14,7 @@ RESULTS_PATH    = Path(__file__).parent / "results.json"
 SUBMISSIONS_DIR = Path(__file__).parent / "submissions"
 SUBMISSIONS_DIR.mkdir(exist_ok=True)
 
-SUBMISSION_COLS = ["match_id", "pred_team1", "pred_team2", "team1_prob", "team2_prob"]
+SUBMISSION_COLS = ["match_id", "team1_score", "team2_score", "team1_prob", "team2_prob"]
 REQUIRED_COLS   = set(SUBMISSION_COLS)
 MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
 
@@ -136,7 +136,7 @@ def score_df(df: pd.DataFrame, results: dict) -> tuple[int, list[dict]]:
             continue
         r = results[mid]
         real_team1, real_team2 = r["team1_score"], r["team2_score"]
-        pred_team1, pred_team2 = int(row["pred_team1"]), int(row["pred_team2"])
+        pred_team1, pred_team2 = int(row["team1_score"]), int(row["team2_score"])
 
         base = calc_score(pred_team1, pred_team2, real_team1, real_team2)
 
@@ -401,14 +401,14 @@ with tab_board:
 with tab_upload:
     st.subheader("📤 예측 CSV 업로드")
     st.caption(
-        "필수 컬럼: `match_id`, `pred_team1`, `pred_team2`, `team1_prob`, `team2_prob`  "
+        "필수 컬럼: `match_id`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`  "
         "(확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
         "— 같은 팀 이름으로 다시 제출하면 기록이 누적됩니다."
     )
 
     template_df = pd.DataFrame([
         {"match_id": m["id"], "team1": m["team1"], "team2": m["team2"],
-         "pred_team1": 0, "pred_team2": 0, "team1_prob": 0.5, "team2_prob": 0.5}
+         "team1_score": 0, "team2_score": 0, "team1_prob": 0.5, "team2_prob": 0.5}
         for m in matches
     ])
 
