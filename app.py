@@ -53,7 +53,6 @@ if "open_team" not in st.session_state:
 
 
 # ── 데이터 로드 ───────────────────────────────────────────────────────────────
-@st.cache_data
 def load_matches():
     with open(MATCHES_PATH, encoding="utf-8") as f:
         data = json.load(f)
