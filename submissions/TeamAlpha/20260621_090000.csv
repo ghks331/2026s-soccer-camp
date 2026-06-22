@@ -1,5 +1,5 @@
-match_id,pred_home,pred_away
-1,2,1
-2,0,3
-3,2,1
-4,1,0
+match_id,pred_team1,pred_team2,team1_prob,team2_prob
+1,2,1,0.6,0.25
+2,0,3,0.25,0.6
+3,2,1,0.6,0.25
+4,1,0,0.6,0.25

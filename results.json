@@ -1,8 +1,8 @@
 {
   "results": {
-    "1": {"home_score": 2, "away_score": 1},
-    "2": {"home_score": 0, "away_score": 3},
-    "3": {"home_score": 2, "away_score": 2},
-    "4": {"home_score": 1, "away_score": 0}
+    "1": {"team1_score": 2, "team2_score": 1},
+    "2": {"team1_score": 0, "team2_score": 3},
+    "3": {"team1_score": 2, "team2_score": 2},
+    "4": {"team1_score": 1, "team2_score": 0}
   }
 }

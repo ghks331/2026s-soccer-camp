@@ -14,7 +14,8 @@ RESULTS_PATH    = Path(__file__).parent / "results.json"
 SUBMISSIONS_DIR = Path(__file__).parent / "submissions"
 SUBMISSIONS_DIR.mkdir(exist_ok=True)
 
-ADMIN_PASSWORD = "camp2025"
+SUBMISSION_COLS = ["match_id", "pred_team1", "pred_team2", "team1_prob", "team2_prob"]
+REQUIRED_COLS   = set(SUBMISSION_COLS)
 MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
 
 st.set_page_config(
@@ -72,11 +73,6 @@ def load_results() -> dict:
     return {str(k): v for k, v in data.get("results", {}).items()}
 
 
-def save_results(results_data: dict):
-    with open(RESULTS_PATH, "w", encoding="utf-8") as f:
-        json.dump({"results": results_data}, f, ensure_ascii=False, indent=2)
-
-
 def load_submissions() -> dict[str, list[dict]]:
     """팀별 제출 기록: {team: [{ts, df}, ...]} 시간순"""
     team_subs: dict[str, list] = {}
@@ -87,7 +83,7 @@ def load_submissions() -> dict[str, list[dict]]:
         for f in sorted(team_dir.glob("*.csv")):
             try:
                 df = pd.read_csv(f)
-                if {"match_id", "pred_home", "pred_away"}.issubset(df.columns):
+                if REQUIRED_COLS.issubset(df.columns):
                     history.append({"ts": f.stem, "df": df})
             except Exception:
                 pass
@@ -104,26 +100,32 @@ def fmt_ts(ts: str) -> str:
 
 
 # ── 채점 ─────────────────────────────────────────────────────────────────────
-def get_winner(home: int, away: int) -> str:
-    if home > away:   return "H"
-    elif home < away: return "A"
+def get_winner(team1: int, team2: int) -> str:
+    """'1' = team1 승, '2' = team2 승, 'D' = 무승부"""
+    if team1 > team2: return "1"
+    elif team1 < team2: return "2"
     return "D"
 
 
-def calc_score(pred_home: int, pred_away: int,
-               real_home: int, real_away: int) -> dict:
-    home_exact     = pred_home == real_home
-    away_exact     = pred_away == real_away
-    result_correct = get_winner(pred_home, pred_away) == get_winner(real_home, real_away)
+def calc_score(pred_team1: int, pred_team2: int,
+               real_team1: int, real_team2: int) -> dict:
+    team1_exact    = pred_team1 == real_team1
+    team2_exact    = pred_team2 == real_team2
+    real_result    = get_winner(real_team1, real_team2)
+    result_correct = get_winner(pred_team1, pred_team2) == real_result
+    is_draw        = real_result == "D"
 
-    if home_exact and away_exact:
-        return {"pts": 10, "label": "🎯 승패 + 두 팀 점수"}
-    elif (home_exact or away_exact) and result_correct:
-        return {"pts": 6,  "label": "✅ 승패 + 한 팀 점수"}
-    elif home_exact or away_exact:
-        return {"pts": 3,  "label": "⭕ 한 팀 점수만 (승패 틀림)"}
+    if team1_exact and team2_exact:
+        label = "🤝 무승부 + 두 팀 점수" if is_draw else "🎯 승패 + 두 팀 점수"
+        return {"pts": 10, "label": label}
+    elif (team1_exact or team2_exact) and result_correct:
+        label = "🤝 무승부 + 한 팀 점수" if is_draw else "✅ 승패 + 한 팀 점수"
+        return {"pts": 6, "label": label}
+    elif team1_exact or team2_exact:
+        return {"pts": 3, "label": "⭕ 한 팀 점수만 (승패 틀림)"}
     elif result_correct:
-        return {"pts": 1,  "label": "🔵 승패만"}
+        label = "🤝 무승부만" if is_draw else "🔵 승패만"
+        return {"pts": 1, "label": label}
     return {"pts": 0, "label": "❌ 모두 틀림"}
 
 
@@ -133,17 +135,20 @@ def score_df(df: pd.DataFrame, results: dict) -> tuple[int, list[dict]]:
         mid = str(int(row["match_id"]))
         if mid not in results:
             continue
-        r    = results[mid]
-        info = calc_score(
-            int(row["pred_home"]), int(row["pred_away"]),
-            r["home_score"], r["away_score"],
-        )
-        total += info["pts"]
+        r = results[mid]
+        real_team1, real_team2 = r["team1_score"], r["team2_score"]
+        pred_team1, pred_team2 = int(row["pred_team1"]), int(row["pred_team2"])
+
+        base = calc_score(pred_team1, pred_team2, real_team1, real_team2)
+
+        total += base["pts"]
         details.append({
-            "match_id":  int(mid),
-            "pred_home": int(row["pred_home"]),
-            "pred_away": int(row["pred_away"]),
-            **info,
+            "match_id":   int(mid),
+            "pred_team1": pred_team1,
+            "pred_team2": pred_team2,
+            "team1_prob": float(row["team1_prob"]),
+            "team2_prob": float(row["team2_prob"]),
+            **base,
         })
     return total, details
 
@@ -161,11 +166,12 @@ def detail_table(details: list[dict], match_map: dict, results: dict) -> pd.Data
         m = match_map.get(d["match_id"], {})
         r = results.get(str(d["match_id"]), {})
         rows.append({
-            "경기": f"{m.get('home','?')} vs {m.get('away','?')}",
-            "예측": f"{d['pred_home']} - {d['pred_away']}",
-            "실제": f"{r.get('home_score','?')} - {r.get('away_score','?')}",
-            "항목": d["label"],
-            "점수": d["pts"],
+            "경기":     f"{m.get('team1','?')} vs {m.get('team2','?')}",
+            "예측":     f"{d['pred_team1']} - {d['pred_team2']}",
+            "실제":     f"{r.get('team1_score','?')} - {r.get('team2_score','?')}",
+            "항목":     d["label"],
+            "점수":     d["pts"],
+            "예측 확률": f"{d['team1_prob']:.0%} / {d['team2_prob']:.0%}",
         })
     return pd.DataFrame(rows)
 
@@ -240,11 +246,11 @@ with st.expander("📋 점수 채점 기준 보기", expanded=True):
             f"<div style='text-align:center;font-size:11px;color:gray;margin-top:3px'>{ex}</div>",
             unsafe_allow_html=True,
         )
-    _crit(ca, "🎯", "10점", "승패 + <b>두 팀</b> 점수",   "예) 2-1 / 실제 2-1")
-    _crit(cb, "✅", "6점",  "승패 + <b>한 팀</b> 점수",   "예) 2-0 / 실제 2-1")
-    _crit(cc, "⭕", "3점",  "한 팀 점수만<br>(승패 틀림)", "예) 2-1 / 실제 2-2")
-    _crit(cd, "🔵", "1점",  "승패 결과만",                 "예) 1-0 / 실제 3-0")
-    _crit(ce, "❌", "0점",  "승패·점수<br>모두 틀림",      "예) 1-0 / 실제 0-2")
+    _crit(ca, "🎯", "10점", "승패(무승부 포함) +<br><b>두 팀</b> 점수", "예) 2-1 / 실제 2-1")
+    _crit(cb, "✅", "6점",  "승패(무승부 포함) +<br><b>한 팀</b> 점수", "예) 2-0 / 실제 2-1")
+    _crit(cc, "⭕", "3점",  "한 팀 점수만<br>(승패 틀림)",            "예) 2-1 / 실제 2-2")
+    _crit(cd, "🔵", "1점",  "승패(무승부 포함)만",                    "예) 1-0 / 실제 3-0")
+    _crit(ce, "❌", "0점",  "승패·점수<br>모두 틀림",                 "예) 1-0 / 실제 0-2")
 
 st.divider()
 
@@ -265,8 +271,8 @@ st.divider()
 
 
 # ── 탭 ───────────────────────────────────────────────────────────────────────
-tab_board, tab_upload, tab_admin = st.tabs([
-    "🏆 리더보드", "📤 CSV 업로드", "🔧 관리자",
+tab_board, tab_upload = st.tabs([
+    "🏆 리더보드", "📤 CSV 업로드",
 ])
 
 
@@ -280,7 +286,7 @@ with tab_board:
         st.caption(
             f"채점 완료: {len(results)} / {len(matches)}경기  ·  "
             f"참가 팀: {len(leaderboard)}팀  ·  "
-            f"동점 시 10점 횟수 → 6점 → 3점 → 1점 순 우선"
+            f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선"
         )
     with col_btn:
         st.markdown("<div style='padding-top:26px'>", unsafe_allow_html=True)
@@ -346,7 +352,7 @@ with tab_board:
 
                     details = row["details"]
                     if not details:
-                        st.caption("채점 가능한 경기가 없어요. 관리자 탭에서 결과를 입력해주세요.")
+                        st.caption("채점 가능한 경기가 없어요. results.json에 결과가 입력되면 반영됩니다.")
                     else:
                         df_show = detail_table(details, match_map, results)
                         st.dataframe(
@@ -396,13 +402,14 @@ with tab_board:
 with tab_upload:
     st.subheader("📤 예측 CSV 업로드")
     st.caption(
-        "필수 컬럼: `match_id`, `pred_home`, `pred_away`  "
+        "필수 컬럼: `match_id`, `pred_team1`, `pred_team2`, `team1_prob`, `team2_prob`  "
+        "(확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
         "— 같은 팀 이름으로 다시 제출하면 기록이 누적됩니다."
     )
 
     template_df = pd.DataFrame([
-        {"match_id": m["id"], "home": m["home"], "away": m["away"],
-         "pred_home": 0, "pred_away": 0}
+        {"match_id": m["id"], "team1": m["team1"], "team2": m["team2"],
+         "pred_team1": 0, "pred_team2": 0, "team1_prob": 0.5, "team2_prob": 0.5}
         for m in matches
     ])
 
@@ -412,7 +419,7 @@ with tab_upload:
     with col_dl:
         st.download_button(
             "📥 빈 템플릿",
-            template_df[["match_id", "pred_home", "pred_away"]].to_csv(index=False),
+            template_df[SUBMISSION_COLS].to_csv(index=False),
             file_name="template.csv",
             mime="text/csv",
         )
@@ -438,77 +445,17 @@ with tab_upload:
         else:
             try:
                 df      = pd.read_csv(uploaded)
-                missing = {"match_id", "pred_home", "pred_away"} - set(df.columns)
+                missing = REQUIRED_COLS - set(df.columns)
                 if missing:
                     st.error(f"필수 컬럼 누락: {missing}")
                 else:
                     team_dir = SUBMISSIONS_DIR / team_name
                     team_dir.mkdir(exist_ok=True)
                     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    df[["match_id", "pred_home", "pred_away"]].to_csv(
+                    df[SUBMISSION_COLS].to_csv(
                         team_dir / f"{ts}.csv", index=False
                     )
                     st.success(f"✅ **{team_name}** 제출 완료! ({len(df)}경기)")
                     st.rerun()
             except Exception as e:
                 st.error(f"파일 읽기 실패: {e}")
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# 탭 3: 관리자 — st.stop() 제거하고 if/elif 패턴 사용
-# ════════════════════════════════════════════════════════════════════════════
-with tab_admin:
-    st.subheader("🔧 관리자 — 경기 결과 입력")
-    st.caption("경기가 끝나면 실제 결과를 입력하세요. 저장 즉시 채점에 반영됩니다.")
-
-    admin_pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
-
-    if admin_pw == ADMIN_PASSWORD:
-        results_edit = dict(results)
-        RESULT_KR    = {"H": "홈 승", "D": "무승부", "A": "원정 승"}
-
-        with open(MATCHES_PATH, encoding="utf-8") as f:
-            raw_data = json.load(f)
-
-        for rnd_data in raw_data["rounds"]:
-            st.markdown(f"### 라운드 {rnd_data['round']}")
-            for m in rnd_data["matches"]:
-                mid      = str(m["id"])
-                existing = results_edit.get(mid, {})
-
-                label = f"**{m['home']} vs {m['away']}**"
-                if existing:
-                    rl     = RESULT_KR[get_winner(existing["home_score"], existing["away_score"])]
-                    label += f"  ✅ {existing['home_score']} : {existing['away_score']} ({rl})"
-                st.markdown(label)
-
-                c1, c2, c3, c4 = st.columns([1, 0.3, 1, 1.5])
-                with c1:
-                    hg = st.number_input(
-                        m["home"], min_value=0, max_value=20,
-                        value=int(existing.get("home_score", 0)),
-                        key=f"adm_home_{m['id']}",
-                    )
-                with c2:
-                    st.markdown(
-                        "<div style='text-align:center;padding-top:28px'>:</div>",
-                        unsafe_allow_html=True,
-                    )
-                with c3:
-                    ag = st.number_input(
-                        m["away"], min_value=0, max_value=20,
-                        value=int(existing.get("away_score", 0)),
-                        key=f"adm_away_{m['id']}",
-                    )
-                with c4:
-                    st.markdown("<div style='padding-top:26px'>", unsafe_allow_html=True)
-                    if st.button("저장", key=f"adm_save_{m['id']}"):
-                        results_edit[mid] = {"home_score": int(hg), "away_score": int(ag)}
-                        save_results(results_edit)
-                        st.success(f"저장: {hg} : {ag}")
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("")
-
-    elif admin_pw:
-        st.error("비밀번호가 틀렸어요.")
