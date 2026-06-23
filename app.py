@@ -67,15 +67,6 @@ st_autorefresh(interval=AUTO_REFRESH_MS, key="auto_refresh")
 if st.session_state.flash:
     st.toast(st.session_state.flash, icon="✅")
     st.session_state.flash = None
-    # 제출 직후 스크롤을 맨 위로 — 업로드 탭 중간에 있던 화면이 그대로 멈춰있지 않도록
-    # (stMain이 실제 스크롤 컨테이너 — 옛 셀렉터 section.main은 현재 버전에 존재하지 않음)
-    st.iframe(
-        """<script>
-        try { window.parent.scrollTo({top: 0, behavior: 'instant'}); } catch (e) {}
-        try { window.parent.document.querySelector('[data-testid="stMain"]').scrollTo(0, 0); } catch (e) {}
-        </script>""",
-        height=1,  # st.iframe은 height=0을 허용하지 않음 (양의 정수/'stretch'/'content'만 가능)
-    )
 
 
 # ── 데이터 로드 ───────────────────────────────────────────────────────────────
