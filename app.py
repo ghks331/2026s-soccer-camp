@@ -12,9 +12,10 @@ from streamlit_autorefresh import st_autorefresh
 AUTO_REFRESH_MS = 300_000  # 자동 새로고침 주기 (5분)
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
-MATCHES_PATH    = Path(__file__).parent / "matches.json"
-RESULTS_PATH    = Path(__file__).parent / "results.json"
-SUBMISSIONS_DIR = Path(__file__).parent / "submissions"
+MATCHES_PATH      = Path(__file__).parent / "matches.json"
+RESULTS_PATH      = Path(__file__).parent / "results.json"
+GROUP_STAGE_PATH  = Path(__file__).parent / "group_stage_result.json"
+SUBMISSIONS_DIR   = Path(__file__).parent / "submissions"
 SUBMISSIONS_DIR.mkdir(exist_ok=True)
 
 SUBMISSION_COLS = ["team1", "team2", "team1_score", "team2_score", "team1_prob", "team2_prob"]
@@ -73,7 +74,7 @@ if st.session_state.flash:
         try { window.parent.scrollTo({top: 0, behavior: 'instant'}); } catch (e) {}
         try { window.parent.document.querySelector('[data-testid="stMain"]').scrollTo(0, 0); } catch (e) {}
         </script>""",
-        height=0,
+        height=1,  # st.iframe은 height=0을 허용하지 않음 (양의 정수/'stretch'/'content'만 가능)
     )
 
 
@@ -106,6 +107,50 @@ def load_results() -> dict:
     with open(RESULTS_PATH, encoding="utf-8") as f:
         data = json.load(f)
     return {str(k): v for k, v in data.get("results", {}).items()}
+
+
+def load_group_standings() -> dict[str, list[dict]]:
+    """조별리그 경기 결과로 조별 순위표(경기/승/무/패/득점/실점/득실차/승점)를 계산.
+    승점 -> 득실차 -> 다득점 -> 팀명 순으로 정렬 (상대 전적·페어플레이 등 세부 타이브레이커는 생략)."""
+    if not GROUP_STAGE_PATH.exists():
+        return {}
+    with open(GROUP_STAGE_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+
+    groups: dict[str, dict[str, dict]] = {}
+    for m in data["matches"]:
+        if m["stage"] != "GROUP_STAGE" or not m.get("group"):
+            continue
+        g = group_label(m["group"])
+        teams = groups.setdefault(g, {})
+        home, away = m["homeTeam"]["name"], m["awayTeam"]["name"]
+        for name in (home, away):
+            teams.setdefault(name, {
+                "team": name, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0,
+            })
+        if m["status"] != "FINISHED":
+            continue
+        hs, as_ = m["score"]["fullTime"]["home"], m["score"]["fullTime"]["away"]
+        th, ta = teams[home], teams[away]
+        th["p"] += 1; ta["p"] += 1
+        th["gf"] += hs; th["ga"] += as_
+        ta["gf"] += as_; ta["ga"] += hs
+        if hs > as_:
+            th["w"] += 1; ta["l"] += 1
+        elif hs < as_:
+            ta["w"] += 1; th["l"] += 1
+        else:
+            th["d"] += 1; ta["d"] += 1
+
+    standings = {}
+    for g, teams in groups.items():
+        rows = list(teams.values())
+        for r in rows:
+            r["gd"]  = r["gf"] - r["ga"]
+            r["pts"] = r["w"] * 3 + r["d"]
+        rows.sort(key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["team"]))
+        standings[g] = rows
+    return standings
 
 
 def load_submissions() -> dict[str, list[dict]]:
@@ -284,9 +329,20 @@ for team, history in all_subs.items():
     })
 
 # 동점 시 tiebreaker: 10점 횟수 → 6점 → 3점 → 1점 순으로 우선순위
-leaderboard.sort(
-    key=lambda r: (-r["score"], -r["cnt"][10], -r["cnt"][6], -r["cnt"][3], -r["cnt"][1])
-)
+def _rank_key(r):
+    return (-r["score"], -r["cnt"][10], -r["cnt"][6], -r["cnt"][3], -r["cnt"][1])
+
+leaderboard.sort(key=_rank_key)
+
+# 순위 계산: 동점이면 같은 순위, 다음 순위는 동점자 수만큼 건너뜀 (예: 1,1,3,4)
+ranks: list[int] = []
+prev_key, prev_rank = None, 0
+for i, row in enumerate(leaderboard):
+    k = _rank_key(row)
+    if k != prev_key:
+        prev_rank = i + 1
+        prev_key = k
+    ranks.append(prev_rank)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -316,7 +372,7 @@ st.divider()
 if leaderboard:
     hero_cols = st.columns(min(len(leaderboard), 4))
     for i, row in enumerate(leaderboard[:4]):
-        medal = MEDALS.get(i, f"{i+1}위")
+        medal = MEDALS.get(ranks[i] - 1, f"{ranks[i]}위")
         with hero_cols[i]:
             st.metric(
                 label=f"{medal}  {row['team']}",
@@ -329,9 +385,49 @@ st.divider()
 
 
 # ── 탭 ───────────────────────────────────────────────────────────────────────
-tab_board, tab_upload = st.tabs([
-    "🏆 리더보드", "📤 CSV 업로드",
+tab_groups, tab_board, tab_upload = st.tabs([
+    "📊 조별리그 순위", "🏆 리더보드", "📤 CSV 업로드",
 ])
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 탭 0: 조별리그 순위 — 실제 월드컵 중계에서 보는 형태의 승/무/패/승점 표
+# ════════════════════════════════════════════════════════════════════════════
+with tab_groups:
+    standings = load_group_standings()
+    if not standings:
+        st.info("group_stage_result.json이 없어요. 조별리그 데이터를 먼저 추가해주세요.")
+    else:
+        group_names = sorted(standings.keys())
+        selected_group = st.selectbox("조 선택", group_names, key="group_select")
+
+        rows = standings[selected_group]
+        table_df = pd.DataFrame([
+            {
+                "순위":  i + 1,
+                "팀":    r["team"],
+                "경기":  r["p"],
+                "승":    r["w"],
+                "무":    r["d"],
+                "패":    r["l"],
+                "득점":  r["gf"],
+                "실점":  r["ga"],
+                "득실차": r["gd"],
+                "승점":  r["pts"],
+            }
+            for i, r in enumerate(rows)
+        ])
+
+        def _highlight_qualify(row):
+            style = "background-color:#e8f5e9" if row["순위"] <= 2 else ""
+            return [style] * len(row)
+
+        st.dataframe(
+            table_df.style.apply(_highlight_qualify, axis=1),
+            width="stretch",
+            hide_index=True,
+        )
+        st.caption("🟩 음영 표시 = 16강 진출권(조 1·2위) · 승점 → 득실차 → 다득점 순으로 순위 결정")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -359,7 +455,7 @@ with tab_board:
         max_score = max(r["score"] for r in leaderboard) or 1
 
         for i, row in enumerate(leaderboard):
-            medal     = MEDALS.get(i, f"{i+1}위")
+            medal     = MEDALS.get(ranks[i] - 1, f"{ranks[i]}위")
             team      = row["team"]
             score     = row["score"]
             is_open   = st.session_state.open_team == team
