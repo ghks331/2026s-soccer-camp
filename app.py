@@ -56,11 +56,7 @@ if "open_team" not in st.session_state:
 def load_matches():
     with open(MATCHES_PATH, encoding="utf-8") as f:
         data = json.load(f)
-    matches = []
-    for rnd in data["rounds"]:
-        for m in rnd["matches"]:
-            m["round"] = rnd["round"]
-            matches.append(m)
+    matches = data["matches"]
     return matches, {m["id"]: m for m in matches}
 
 

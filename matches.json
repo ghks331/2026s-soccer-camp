@@ -1,29 +1,286 @@
 {
-  "rounds": [
+  "matches": [
     {
-      "round": 1,
-      "matches": [
-        {"id": 1, "team1": "한국", "team2": "일본"},
-        {"id": 2, "team1": "브라질", "team2": "아르헨티나"},
-        {"id": 3, "team1": "독일", "team2": "프랑스"},
-        {"id": 4, "team1": "스페인", "team2": "영국"}
-      ]
+      "id": 537327,
+      "team1": "Mexico",
+      "team2": "South Africa",
+      "group": "GROUP_A"
     },
     {
-      "round": 2,
-      "matches": [
-        {"id": 5, "team1": "한국", "team2": "브라질"},
-        {"id": 6, "team1": "아르헨티나", "team2": "독일"},
-        {"id": 7, "team1": "프랑스", "team2": "스페인"},
-        {"id": 8, "team1": "영국", "team2": "일본"}
-      ]
+      "id": 537328,
+      "team1": "South Korea",
+      "team2": "Czechia",
+      "group": "GROUP_A"
     },
     {
-      "round": 3,
-      "matches": [
-        {"id": 9,  "team1": "독일", "team2": "한국"},
-        {"id": 10, "team1": "브라질", "team2": "스페인"}
-      ]
+      "id": 537333,
+      "team1": "Canada",
+      "team2": "Bosnia-Herzegovina",
+      "group": "GROUP_B"
+    },
+    {
+      "id": 537345,
+      "team1": "United States",
+      "team2": "Paraguay",
+      "group": "GROUP_D"
+    },
+    {
+      "id": 537334,
+      "team1": "Qatar",
+      "team2": "Switzerland",
+      "group": "GROUP_B"
+    },
+    {
+      "id": 537339,
+      "team1": "Brazil",
+      "team2": "Morocco",
+      "group": "GROUP_C"
+    },
+    {
+      "id": 537340,
+      "team1": "Haiti",
+      "team2": "Scotland",
+      "group": "GROUP_C"
+    },
+    {
+      "id": 537346,
+      "team1": "Australia",
+      "team2": "Turkey",
+      "group": "GROUP_D"
+    },
+    {
+      "id": 537351,
+      "team1": "Germany",
+      "team2": "Curaçao",
+      "group": "GROUP_E"
+    },
+    {
+      "id": 537357,
+      "team1": "Netherlands",
+      "team2": "Japan",
+      "group": "GROUP_F"
+    },
+    {
+      "id": 537352,
+      "team1": "Ivory Coast",
+      "team2": "Ecuador",
+      "group": "GROUP_E"
+    },
+    {
+      "id": 537358,
+      "team1": "Sweden",
+      "team2": "Tunisia",
+      "group": "GROUP_F"
+    },
+    {
+      "id": 537369,
+      "team1": "Spain",
+      "team2": "Cape Verde Islands",
+      "group": "GROUP_H"
+    },
+    {
+      "id": 537363,
+      "team1": "Belgium",
+      "team2": "Egypt",
+      "group": "GROUP_G"
+    },
+    {
+      "id": 537370,
+      "team1": "Saudi Arabia",
+      "team2": "Uruguay",
+      "group": "GROUP_H"
+    },
+    {
+      "id": 537364,
+      "team1": "Iran",
+      "team2": "New Zealand",
+      "group": "GROUP_G"
+    },
+    {
+      "id": 537391,
+      "team1": "France",
+      "team2": "Senegal",
+      "group": "GROUP_I"
+    },
+    {
+      "id": 537392,
+      "team1": "Iraq",
+      "team2": "Norway",
+      "group": "GROUP_I"
+    },
+    {
+      "id": 537397,
+      "team1": "Argentina",
+      "team2": "Algeria",
+      "group": "GROUP_J"
+    },
+    {
+      "id": 537398,
+      "team1": "Austria",
+      "team2": "Jordan",
+      "group": "GROUP_J"
+    },
+    {
+      "id": 537403,
+      "team1": "Portugal",
+      "team2": "Congo DR",
+      "group": "GROUP_K"
+    },
+    {
+      "id": 537409,
+      "team1": "England",
+      "team2": "Croatia",
+      "group": "GROUP_L"
+    },
+    {
+      "id": 537410,
+      "team1": "Ghana",
+      "team2": "Panama",
+      "group": "GROUP_L"
+    },
+    {
+      "id": 537404,
+      "team1": "Uzbekistan",
+      "team2": "Colombia",
+      "group": "GROUP_K"
+    },
+    {
+      "id": 537329,
+      "team1": "Czechia",
+      "team2": "South Africa",
+      "group": "GROUP_A"
+    },
+    {
+      "id": 537335,
+      "team1": "Switzerland",
+      "team2": "Bosnia-Herzegovina",
+      "group": "GROUP_B"
+    },
+    {
+      "id": 537336,
+      "team1": "Canada",
+      "team2": "Qatar",
+      "group": "GROUP_B"
+    },
+    {
+      "id": 537330,
+      "team1": "Mexico",
+      "team2": "South Korea",
+      "group": "GROUP_A"
+    },
+    {
+      "id": 537348,
+      "team1": "United States",
+      "team2": "Australia",
+      "group": "GROUP_D"
+    },
+    {
+      "id": 537342,
+      "team1": "Scotland",
+      "team2": "Morocco",
+      "group": "GROUP_C"
+    },
+    {
+      "id": 537341,
+      "team1": "Brazil",
+      "team2": "Haiti",
+      "group": "GROUP_C"
+    },
+    {
+      "id": 537347,
+      "team1": "Turkey",
+      "team2": "Paraguay",
+      "group": "GROUP_D"
+    },
+    {
+      "id": 537359,
+      "team1": "Netherlands",
+      "team2": "Sweden",
+      "group": "GROUP_F"
+    },
+    {
+      "id": 537353,
+      "team1": "Germany",
+      "team2": "Ivory Coast",
+      "group": "GROUP_E"
+    },
+    {
+      "id": 537354,
+      "team1": "Ecuador",
+      "team2": "Curaçao",
+      "group": "GROUP_E"
+    },
+    {
+      "id": 537360,
+      "team1": "Tunisia",
+      "team2": "Japan",
+      "group": "GROUP_F"
+    },
+    {
+      "id": 537371,
+      "team1": "Spain",
+      "team2": "Saudi Arabia",
+      "group": "GROUP_H"
+    },
+    {
+      "id": 537365,
+      "team1": "Belgium",
+      "team2": "Iran",
+      "group": "GROUP_G"
+    },
+    {
+      "id": 537372,
+      "team1": "Uruguay",
+      "team2": "Cape Verde Islands",
+      "group": "GROUP_H"
+    },
+    {
+      "id": 537366,
+      "team1": "New Zealand",
+      "team2": "Egypt",
+      "group": "GROUP_G"
+    },
+    {
+      "id": 537399,
+      "team1": "Argentina",
+      "team2": "Austria",
+      "group": "GROUP_J"
+    },
+    {
+      "id": 537393,
+      "team1": "France",
+      "team2": "Iraq",
+      "group": "GROUP_I"
+    },
+    {
+      "id": 537394,
+      "team1": "Norway",
+      "team2": "Senegal",
+      "group": "GROUP_I"
+    },
+    {
+      "id": 537400,
+      "team1": "Jordan",
+      "team2": "Algeria",
+      "group": "GROUP_J"
+    },
+    {
+      "id": 537405,
+      "team1": "Portugal",
+      "team2": "Uzbekistan",
+      "group": "GROUP_K"
+    },
+    {
+      "id": 537411,
+      "team1": "England",
+      "team2": "Ghana",
+      "group": "GROUP_L"
+    },
+    {
+      "id": 537412,
+      "team1": "Panama",
+      "team2": "Croatia",
+      "group": "GROUP_L"
     }
   ]
 }

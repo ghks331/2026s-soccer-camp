@@ -1,5 +1,0 @@
-match_id,team1_score,team2_score,team1_prob,team2_prob
-1,2,1,0.6,0.25
-2,0,3,0.25,0.6
-3,2,1,0.6,0.25
-4,1,0,0.6,0.25

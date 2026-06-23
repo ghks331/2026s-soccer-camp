@@ -1,8 +1,176 @@
 {
   "results": {
-    "1": {"team1_score": 2, "team2_score": 1},
-    "2": {"team1_score": 0, "team2_score": 3},
-    "3": {"team1_score": 2, "team2_score": 2},
-    "4": {"team1_score": 1, "team2_score": 0}
+    "537327": {
+      "team1_score": 2,
+      "team2_score": 0
+    },
+    "537328": {
+      "team1_score": 2,
+      "team2_score": 1
+    },
+    "537333": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537345": {
+      "team1_score": 4,
+      "team2_score": 1
+    },
+    "537334": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537339": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537340": {
+      "team1_score": 0,
+      "team2_score": 1
+    },
+    "537346": {
+      "team1_score": 2,
+      "team2_score": 0
+    },
+    "537351": {
+      "team1_score": 7,
+      "team2_score": 1
+    },
+    "537357": {
+      "team1_score": 2,
+      "team2_score": 2
+    },
+    "537352": {
+      "team1_score": 1,
+      "team2_score": 0
+    },
+    "537358": {
+      "team1_score": 5,
+      "team2_score": 1
+    },
+    "537369": {
+      "team1_score": 0,
+      "team2_score": 0
+    },
+    "537363": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537370": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537364": {
+      "team1_score": 2,
+      "team2_score": 2
+    },
+    "537391": {
+      "team1_score": 3,
+      "team2_score": 1
+    },
+    "537392": {
+      "team1_score": 1,
+      "team2_score": 4
+    },
+    "537397": {
+      "team1_score": 3,
+      "team2_score": 0
+    },
+    "537398": {
+      "team1_score": 3,
+      "team2_score": 1
+    },
+    "537403": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537409": {
+      "team1_score": 4,
+      "team2_score": 2
+    },
+    "537410": {
+      "team1_score": 1,
+      "team2_score": 0
+    },
+    "537404": {
+      "team1_score": 1,
+      "team2_score": 3
+    },
+    "537329": {
+      "team1_score": 1,
+      "team2_score": 1
+    },
+    "537335": {
+      "team1_score": 4,
+      "team2_score": 1
+    },
+    "537336": {
+      "team1_score": 6,
+      "team2_score": 0
+    },
+    "537330": {
+      "team1_score": 1,
+      "team2_score": 0
+    },
+    "537348": {
+      "team1_score": 2,
+      "team2_score": 0
+    },
+    "537342": {
+      "team1_score": 0,
+      "team2_score": 1
+    },
+    "537341": {
+      "team1_score": 3,
+      "team2_score": 0
+    },
+    "537347": {
+      "team1_score": 0,
+      "team2_score": 1
+    },
+    "537359": {
+      "team1_score": 5,
+      "team2_score": 1
+    },
+    "537353": {
+      "team1_score": 2,
+      "team2_score": 1
+    },
+    "537354": {
+      "team1_score": 0,
+      "team2_score": 0
+    },
+    "537360": {
+      "team1_score": 0,
+      "team2_score": 4
+    },
+    "537371": {
+      "team1_score": 4,
+      "team2_score": 0
+    },
+    "537365": {
+      "team1_score": 0,
+      "team2_score": 0
+    },
+    "537372": {
+      "team1_score": 2,
+      "team2_score": 2
+    },
+    "537366": {
+      "team1_score": 1,
+      "team2_score": 3
+    },
+    "537399": {
+      "team1_score": 2,
+      "team2_score": 0
+    },
+    "537393": {
+      "team1_score": 3,
+      "team2_score": 0
+    },
+    "537394": {
+      "team1_score": 3,
+      "team2_score": 2
+    }
   }
 }
