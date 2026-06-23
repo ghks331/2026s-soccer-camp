@@ -7,9 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-
-AUTO_REFRESH_MS = 300_000  # 자동 새로고침 주기 (5분)
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 MATCHES_PATH      = Path(__file__).parent / "matches.json"
@@ -58,9 +55,6 @@ if "flash" not in st.session_state:
     st.session_state.flash = None
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
-
-# 다른 팀의 제출·결과 입력을 별도 동작 없이도 반영하기 위해 주기적으로 자동 새로고침
-st_autorefresh(interval=AUTO_REFRESH_MS, key="auto_refresh")
 
 # rerun으로 넘어온 제출 완료 메시지를 한 번만 띄움 (rerun 직전 st.success는 화면 갱신과
 # 동시에 사라지므로, session_state에 저장해 다음 실행 시 toast로 보여준다)
@@ -441,8 +435,7 @@ with tab_board:
         st.caption(
             f"채점 완료: {len(results)} / {len(matches)}경기  ·  "
             f"참가 팀: {len(leaderboard)}팀  ·  "
-            f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선  ·  "
-            f"{AUTO_REFRESH_MS // 60_000}분마다 자동 새로고침"
+            f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선"
         )
     with col_btn:
         st.markdown("<div style='padding-top:26px'>", unsafe_allow_html=True)
