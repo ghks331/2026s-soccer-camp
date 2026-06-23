@@ -7,10 +7,9 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 from streamlit_autorefresh import st_autorefresh
 
-AUTO_REFRESH_MS = 30_000  # 자동 새로고침 주기 (30초)
+AUTO_REFRESH_MS = 300_000  # 자동 새로고침 주기 (5분)
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 MATCHES_PATH    = Path(__file__).parent / "matches.json"
@@ -69,7 +68,7 @@ if st.session_state.flash:
     st.session_state.flash = None
     # 제출 직후 스크롤을 맨 위로 — 업로드 탭 중간에 있던 화면이 그대로 멈춰있지 않도록
     # (stMain이 실제 스크롤 컨테이너 — 옛 셀렉터 section.main은 현재 버전에 존재하지 않음)
-    components.html(
+    st.iframe(
         """<script>
         try { window.parent.scrollTo({top: 0, behavior: 'instant'}); } catch (e) {}
         try { window.parent.document.querySelector('[data-testid="stMain"]').scrollTo(0, 0); } catch (e) {}
@@ -346,7 +345,7 @@ with tab_board:
             f"채점 완료: {len(results)} / {len(matches)}경기  ·  "
             f"참가 팀: {len(leaderboard)}팀  ·  "
             f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선  ·  "
-            f"{AUTO_REFRESH_MS // 1000}초마다 자동 새로고침"
+            f"{AUTO_REFRESH_MS // 60_000}분마다 자동 새로고침"
         )
     with col_btn:
         st.markdown("<div style='padding-top:26px'>", unsafe_allow_html=True)
