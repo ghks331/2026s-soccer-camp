@@ -15,9 +15,14 @@ GROUP_STAGE_PATH  = Path(__file__).parent / "group_stage_result.json"
 SUBMISSIONS_DIR   = Path(__file__).parent / "submissions"
 SUBMISSIONS_DIR.mkdir(exist_ok=True)
 
-SUBMISSION_COLS = ["team1", "team2", "team1_score", "team2_score", "team1_prob", "team2_prob"]
+SUBMISSION_COLS = ["team1", "team2", "team1_score", "team2_score", "team1_prob", "team2_prob", "type"]
 REQUIRED_COLS   = set(SUBMISSION_COLS)
 MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
+
+TEAM_OPTIONS = ["1팀: 에스파", "2팀: 국한기", "3팀: 골", "4팀: 레알"]
+
+VIEW_BOARD  = "🏆 리더보드"
+VIEW_UPLOAD = "📤 CSV 업로드"
 
 st.set_page_config(
     page_title="⚽ 월드컵 예측 리더보드",
@@ -55,6 +60,10 @@ if "flash" not in st.session_state:
     st.session_state.flash = None
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
+if "active_view" not in st.session_state:
+    st.session_state.active_view = VIEW_BOARD
+if "view_widget_key" not in st.session_state:
+    st.session_state.view_widget_key = 0
 
 # rerun으로 넘어온 제출 완료 메시지를 한 번만 띄움 (rerun 직전 st.success는 화면 갱신과
 # 동시에 사라지므로, session_state에 저장해 다음 실행 시 toast로 보여준다)
@@ -390,16 +399,12 @@ else:
         for i, r in enumerate(rows)
     ])
 
-    def _highlight_qualify(row):
-        style = "background-color:#e8f5e9" if row["순위"] <= 2 else ""
-        return [style] * len(row)
-
     st.dataframe(
-        table_df.style.apply(_highlight_qualify, axis=1),
+        table_df,
         width="stretch",
         hide_index=True,
     )
-    st.caption("🟩 음영 표시 = 16강 진출권(조 1·2위) · 승점 → 득실차 → 다득점 순으로 순위 결정")
+    st.caption("16강 진출권 = 조 1·2위 · 승점 → 득실차 → 다득점 순으로 순위 결정")
 
 st.divider()
 
@@ -420,15 +425,29 @@ st.divider()
 
 
 # ── 탭 ───────────────────────────────────────────────────────────────────────
-tab_board, tab_upload = st.tabs([
-    "🏆 리더보드", "📤 CSV 업로드",
-])
+# st.tabs()는 명시적으로 어느 탭을 보여줄지 제어할 수 없고, st.rerun() 호출 시
+# 탭을 초기 탭으로 되돌리는 동작도 안정적이지 않았다. segmented_control로
+# 대체했는데 두 가지 함정이 있었다:
+#  1) key를 직접 쓰면 "위젯이 인스턴스화된 뒤에는 같은 run에서
+#     session_state[key]를 못 바꾼다"는 제약에 걸림 (StreamlitAPIException이
+#     try/except에 조용히 흡수되고 있었음)
+#  2) key 없이 default만 쓰면, 사용자가 위젯을 한 번이라도 직접 클릭한 뒤로는
+#     위젯 자체의 "마지막 클릭 상태"가 default보다 우선시되어 강제 전환이 무시됨
+# uploader_key와 같은 패턴으로, 강제 전환할 때마다 위젯의 key 자체를 바꿔서
+# "완전히 새로운 위젯"으로 재마운트시켜야 default가 다시 적용된다.
+_selected_view = st.segmented_control(
+    "화면 선택", [VIEW_BOARD, VIEW_UPLOAD],
+    key=f"view_select_{st.session_state.view_widget_key}",
+    default=st.session_state.active_view, label_visibility="collapsed",
+)
+if _selected_view is not None:
+    st.session_state.active_view = _selected_view
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 탭 1: 리더보드 — session_state 토글로 상세 보기 (rerun 후에도 열린 상태 유지)
+# 화면 1: 리더보드 — session_state 토글로 상세 보기 (rerun 후에도 열린 상태 유지)
 # ════════════════════════════════════════════════════════════════════════════
-with tab_board:
+if st.session_state.active_view == VIEW_BOARD:
     col_h, col_btn = st.columns([5, 1])
     with col_h:
         st.subheader("🏆 전체 순위")
@@ -555,20 +574,23 @@ with tab_board:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 탭 2: CSV 업로드
+# 화면 2: CSV 업로드
 # ════════════════════════════════════════════════════════════════════════════
-with tab_upload:
+elif st.session_state.active_view == VIEW_UPLOAD:
     st.subheader("📤 예측 CSV 업로드")
     st.caption(
-        "필수 컬럼: `team1`, `team2`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`  "
+        "필수 컬럼: `team1`, `team2`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`, `type`  "
         "(팀 이름으로 경기를 찾아 채점합니다 — team1/team2 순서가 바뀌어도 매칭됩니다. "
+        "type은 표시용 참고 정보일 뿐 채점에는 쓰이지 않습니다 — 아직 치르지 않았거나 "
+        "목록에 없는 경기 행은 조용히 채점에서 제외됩니다. "
         "확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
         "— 같은 팀 이름으로 다시 제출하면 기록이 누적됩니다."
     )
 
     template_df = pd.DataFrame([
         {"team1": m["team1"], "team2": m["team2"],
-         "team1_score": 0, "team2_score": 0, "team1_prob": 0.5, "team2_prob": 0.5}
+         "team1_score": 0, "team2_score": 0, "team1_prob": 0.5, "team2_prob": 0.5,
+         "type": ""}
         for m in matches
     ])
 
@@ -593,10 +615,12 @@ with tab_upload:
 
     st.divider()
 
-    # st.form으로 감싸서, 팀 이름 입력·파일 선택 자체로는 재실행이 일어나지 않고
+    # st.form으로 감싸서, 팀 선택·파일 선택 자체로는 재실행이 일어나지 않고
     # "제출하기"를 눌렀을 때 한 번만 재실행되도록 한다
     with st.form("upload_form"):
-        team_name = st.text_input("팀 이름", placeholder="예) TeamAlpha").strip()
+        team_name = st.selectbox(
+            "팀 이름", TEAM_OPTIONS, index=None, placeholder="팀을 선택해주세요",
+        )
         uploaded  = st.file_uploader(
             "예측 CSV 파일", type=["csv"],
             key=f"uploader_{st.session_state.uploader_key}",
@@ -605,7 +629,7 @@ with tab_upload:
 
     if submitted:
         if not team_name:
-            st.error("팀 이름을 입력해주세요.")
+            st.error("팀을 선택해주세요.")
         elif not uploaded:
             st.error("CSV 파일을 선택해주세요.")
         else:
@@ -633,6 +657,10 @@ with tab_upload:
                     st.session_state.uploader_key += 1
                     # 리더보드는 항상 전부 접힌 상태로 시작
                     st.session_state.open_team = None
+                    # 화면을 명시적으로 리더보드로 전환. 위젯을 새 key로 재마운트해야
+                    # (사용자가 이미 CSV 업로드를 클릭해둔 상태에서도) default가 적용된다
+                    st.session_state.active_view = VIEW_BOARD
+                    st.session_state.view_widget_key += 1
                     st.rerun()
             except Exception as e:
                 st.error(f"파일 읽기 실패: {e}")
