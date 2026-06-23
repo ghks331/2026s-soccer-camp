@@ -368,6 +368,47 @@ with st.expander("📋 점수 채점 기준 보기", expanded=True):
 
 st.divider()
 
+# ════════════════════════════════════════════════════════════════════════════
+# 조별리그 순위 — 탭과 무관하게 항상 보이도록 채점 기준 바로 다음에 배치
+# ════════════════════════════════════════════════════════════════════════════
+st.subheader("📊 조별리그 순위")
+standings = load_group_standings()
+if not standings:
+    st.info("group_stage_result.json이 없어요. 조별리그 데이터를 먼저 추가해주세요.")
+else:
+    group_names = sorted(standings.keys())
+    selected_group = st.selectbox("조 선택", group_names, key="group_select")
+
+    rows = standings[selected_group]
+    table_df = pd.DataFrame([
+        {
+            "순위":  i + 1,
+            "팀":    r["team"],
+            "경기":  r["p"],
+            "승":    r["w"],
+            "무":    r["d"],
+            "패":    r["l"],
+            "득점":  r["gf"],
+            "실점":  r["ga"],
+            "득실차": r["gd"],
+            "승점":  r["pts"],
+        }
+        for i, r in enumerate(rows)
+    ])
+
+    def _highlight_qualify(row):
+        style = "background-color:#e8f5e9" if row["순위"] <= 2 else ""
+        return [style] * len(row)
+
+    st.dataframe(
+        table_df.style.apply(_highlight_qualify, axis=1),
+        width="stretch",
+        hide_index=True,
+    )
+    st.caption("🟩 음영 표시 = 16강 진출권(조 1·2위) · 승점 → 득실차 → 다득점 순으로 순위 결정")
+
+st.divider()
+
 # 상위 팀 요약 카드
 if leaderboard:
     hero_cols = st.columns(min(len(leaderboard), 4))
@@ -385,49 +426,9 @@ st.divider()
 
 
 # ── 탭 ───────────────────────────────────────────────────────────────────────
-tab_groups, tab_board, tab_upload = st.tabs([
-    "📊 조별리그 순위", "🏆 리더보드", "📤 CSV 업로드",
+tab_board, tab_upload = st.tabs([
+    "🏆 리더보드", "📤 CSV 업로드",
 ])
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# 탭 0: 조별리그 순위 — 실제 월드컵 중계에서 보는 형태의 승/무/패/승점 표
-# ════════════════════════════════════════════════════════════════════════════
-with tab_groups:
-    standings = load_group_standings()
-    if not standings:
-        st.info("group_stage_result.json이 없어요. 조별리그 데이터를 먼저 추가해주세요.")
-    else:
-        group_names = sorted(standings.keys())
-        selected_group = st.selectbox("조 선택", group_names, key="group_select")
-
-        rows = standings[selected_group]
-        table_df = pd.DataFrame([
-            {
-                "순위":  i + 1,
-                "팀":    r["team"],
-                "경기":  r["p"],
-                "승":    r["w"],
-                "무":    r["d"],
-                "패":    r["l"],
-                "득점":  r["gf"],
-                "실점":  r["ga"],
-                "득실차": r["gd"],
-                "승점":  r["pts"],
-            }
-            for i, r in enumerate(rows)
-        ])
-
-        def _highlight_qualify(row):
-            style = "background-color:#e8f5e9" if row["순위"] <= 2 else ""
-            return [style] * len(row)
-
-        st.dataframe(
-            table_df.style.apply(_highlight_qualify, axis=1),
-            width="stretch",
-            hide_index=True,
-        )
-        st.caption("🟩 음영 표시 = 16강 진출권(조 1·2위) · 승점 → 득실차 → 다득점 순으로 순위 결정")
 
 
 # ════════════════════════════════════════════════════════════════════════════
