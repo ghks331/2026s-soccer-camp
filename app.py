@@ -67,6 +67,15 @@ st_autorefresh(interval=AUTO_REFRESH_MS, key="auto_refresh")
 if st.session_state.flash:
     st.toast(st.session_state.flash, icon="✅")
     st.session_state.flash = None
+    # 제출 직후 스크롤을 맨 위로 강제 이동 — 이게 없으면 탭은 리더보드로 바뀌어도
+    # 스크롤 위치가 그대로 남아 새 탭의 중간/끝부분에 멈춰서 "아무 변화 없는" 것처럼 보임
+    st.iframe(
+        """<script>
+        try { window.parent.scrollTo({top: 0, behavior: 'instant'}); } catch (e) {}
+        try { window.parent.document.querySelector('[data-testid="stMain"]').scrollTo(0, 0); } catch (e) {}
+        </script>""",
+        height=1,  # st.iframe은 height=0을 허용하지 않음 (양의 정수/'stretch'/'content'만 가능)
+    )
 
 
 # ── 데이터 로드 ───────────────────────────────────────────────────────────────
