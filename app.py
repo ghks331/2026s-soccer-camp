@@ -600,13 +600,17 @@ with tab_upload:
 
     st.divider()
 
-    team_name = st.text_input("팀 이름", placeholder="예) TeamAlpha").strip()
-    uploaded  = st.file_uploader(
-        "예측 CSV 파일", type=["csv"],
-        key=f"uploader_{st.session_state.uploader_key}",
-    )
+    # st.form으로 감싸서, 팀 이름 입력·파일 선택 자체로는 재실행이 일어나지 않고
+    # "제출하기"를 눌렀을 때 한 번만 재실행되도록 한다
+    with st.form("upload_form"):
+        team_name = st.text_input("팀 이름", placeholder="예) TeamAlpha").strip()
+        uploaded  = st.file_uploader(
+            "예측 CSV 파일", type=["csv"],
+            key=f"uploader_{st.session_state.uploader_key}",
+        )
+        submitted = st.form_submit_button("🚀 제출하기", type="primary", width="stretch")
 
-    if st.button("🚀 제출하기", type="primary", width="stretch"):
+    if submitted:
         if not team_name:
             st.error("팀 이름을 입력해주세요.")
         elif not uploaded:
