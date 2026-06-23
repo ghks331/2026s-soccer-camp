@@ -7,6 +7,10 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
+from streamlit_autorefresh import st_autorefresh
+
+AUTO_REFRESH_MS = 30_000  # 자동 새로고침 주기 (30초)
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 MATCHES_PATH    = Path(__file__).parent / "matches.json"
@@ -14,7 +18,7 @@ RESULTS_PATH    = Path(__file__).parent / "results.json"
 SUBMISSIONS_DIR = Path(__file__).parent / "submissions"
 SUBMISSIONS_DIR.mkdir(exist_ok=True)
 
-SUBMISSION_COLS = ["match_id", "team1_score", "team2_score", "team1_prob", "team2_prob"]
+SUBMISSION_COLS = ["team1", "team2", "team1_score", "team2_score", "team1_prob", "team2_prob"]
 REQUIRED_COLS   = set(SUBMISSION_COLS)
 MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
 
@@ -50,6 +54,28 @@ st.markdown("""
 # ── 세션 상태 초기화 ──────────────────────────────────────────────────────────
 if "open_team" not in st.session_state:
     st.session_state.open_team = None
+if "flash" not in st.session_state:
+    st.session_state.flash = None
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+# 다른 팀의 제출·결과 입력을 별도 동작 없이도 반영하기 위해 주기적으로 자동 새로고침
+st_autorefresh(interval=AUTO_REFRESH_MS, key="auto_refresh")
+
+# rerun으로 넘어온 제출 완료 메시지를 한 번만 띄움 (rerun 직전 st.success는 화면 갱신과
+# 동시에 사라지므로, session_state에 저장해 다음 실행 시 toast로 보여준다)
+if st.session_state.flash:
+    st.toast(st.session_state.flash, icon="✅")
+    st.session_state.flash = None
+    # 제출 직후 스크롤을 맨 위로 — 업로드 탭 중간에 있던 화면이 그대로 멈춰있지 않도록
+    # (stMain이 실제 스크롤 컨테이너 — 옛 셀렉터 section.main은 현재 버전에 존재하지 않음)
+    components.html(
+        """<script>
+        try { window.parent.scrollTo({top: 0, behavior: 'instant'}); } catch (e) {}
+        try { window.parent.document.querySelector('[data-testid="stMain"]').scrollTo(0, 0); } catch (e) {}
+        </script>""",
+        height=0,
+    )
 
 
 # ── 데이터 로드 ───────────────────────────────────────────────────────────────
@@ -58,6 +84,21 @@ def load_matches():
         data = json.load(f)
     matches = data["matches"]
     return matches, {m["id"]: m for m in matches}
+
+
+def _norm(name: str) -> str:
+    return str(name).strip().casefold()
+
+
+def build_match_lookup(matches: list[dict]) -> dict:
+    """(team1, team2) 정규화 이름 쌍 -> (match_id, swapped) 매핑.
+    CSV에 팀 순서가 반대로 들어와도 매칭되도록 양방향으로 등록한다."""
+    lookup = {}
+    for m in matches:
+        a, b = _norm(m["team1"]), _norm(m["team2"])
+        lookup[(a, b)] = (m["id"], False)
+        lookup[(b, a)] = (m["id"], True)
+    return lookup
 
 
 def load_results() -> dict:
@@ -117,22 +158,37 @@ def calc_score(pred_team1: int, pred_team2: int,
         label = "🤝 무승부 + 한 팀 점수" if is_draw else "✅ 승패 + 한 팀 점수"
         return {"pts": 6, "label": label}
     elif team1_exact or team2_exact:
-        return {"pts": 3, "label": "⭕ 한 팀 점수만 (승패 틀림)"}
+        label = "⭕ 한 팀 점수만 (무승부 예측 틀림)" if is_draw else "⭕ 한 팀 점수만 (승패 틀림)"
+        return {"pts": 3, "label": label}
     elif result_correct:
         label = "🤝 무승부만" if is_draw else "🔵 승패만"
         return {"pts": 1, "label": label}
     return {"pts": 0, "label": "❌ 모두 틀림"}
 
 
-def score_df(df: pd.DataFrame, results: dict) -> tuple[int, list[dict]]:
-    total, details = 0, []
+def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, list[dict], int]:
+    """팀 이름(team1, team2)으로 경기를 찾아 채점한다.
+    매칭되는 경기가 없는 행은 unmatched로 집계하고 건너뛴다."""
+    total, details, unmatched = 0, [], 0
     for _, row in df.iterrows():
-        mid = str(int(row["match_id"]))
+        hit = match_lookup.get((_norm(row["team1"]), _norm(row["team2"])))
+        if hit is None:
+            unmatched += 1
+            continue
+
+        mid, swapped = hit
+        mid = str(mid)
         if mid not in results:
             continue
         r = results[mid]
         real_team1, real_team2 = r["team1_score"], r["team2_score"]
-        pred_team1, pred_team2 = int(row["team1_score"]), int(row["team2_score"])
+
+        if not swapped:
+            pred_team1, pred_team2 = int(row["team1_score"]), int(row["team2_score"])
+            prob1, prob2           = float(row["team1_prob"]), float(row["team2_prob"])
+        else:  # CSV에 팀 순서가 반대로 적혀 있던 경우 -> 점수도 맞춰서 뒤집어 비교
+            pred_team1, pred_team2 = int(row["team2_score"]), int(row["team1_score"])
+            prob1, prob2           = float(row["team2_prob"]), float(row["team1_prob"])
 
         base = calc_score(pred_team1, pred_team2, real_team1, real_team2)
 
@@ -141,11 +197,11 @@ def score_df(df: pd.DataFrame, results: dict) -> tuple[int, list[dict]]:
             "match_id":   int(mid),
             "pred_team1": pred_team1,
             "pred_team2": pred_team2,
-            "team1_prob": float(row["team1_prob"]),
-            "team2_prob": float(row["team2_prob"]),
+            "team1_prob": prob1,
+            "team2_prob": prob2,
             **base,
         })
-    return total, details
+    return total, details, unmatched
 
 
 def make_cnt(details: list[dict]) -> dict:
@@ -155,12 +211,19 @@ def make_cnt(details: list[dict]) -> dict:
     return cnt
 
 
+def group_label(group: str | None) -> str:
+    if group and group.startswith("GROUP_"):
+        return f"{group[len('GROUP_'):]}조"
+    return "조 정보 없음"
+
+
 def detail_table(details: list[dict], match_map: dict, results: dict) -> pd.DataFrame:
     rows = []
     for d in details:
         m = match_map.get(d["match_id"], {})
         r = results.get(str(d["match_id"]), {})
         rows.append({
+            "조":       group_label(m.get("group")),
             "경기":     f"{m.get('team1','?')} vs {m.get('team2','?')}",
             "예측":     f"{d['pred_team1']} - {d['pred_team2']}",
             "실제":     f"{r.get('team1_score','?')} - {r.get('team2_score','?')}",
@@ -173,11 +236,11 @@ def detail_table(details: list[dict], match_map: dict, results: dict) -> pd.Data
 
 def highlight_pts(row):
     styles = {
-        10: "background-color:#1e4620;color:#a5d6a7",
-        6:  "background-color:#3e2a00;color:#ffcc80",
-        3:  "background-color:#3e2c00;color:#fff59d",
-        1:  "background-color:#0d2a4a;color:#90caf9",
-        0:  "background-color:#3e1010;color:#ef9a9a",
+        10: "background-color:#e8f5e9;color:#1b5e20",
+        6:  "background-color:#fff3e0;color:#e65100",
+        3:  "background-color:#fffde7;color:#8d6e00",
+        1:  "background-color:#e3f2fd;color:#0d47a1",
+        0:  "background-color:#ffebee;color:#b71c1c",
     }
     return [styles.get(row["점수"], "")] * len(row)
 
@@ -203,12 +266,13 @@ def pills_html(cnt: dict) -> str:
 
 # ── 데이터 준비 ───────────────────────────────────────────────────────────────
 matches, match_map = load_matches()
+match_lookup        = build_match_lookup(matches)
 results            = load_results()
 all_subs           = load_submissions()
 
 leaderboard: list[dict] = []
 for team, history in all_subs.items():
-    total, details = score_df(history[-1]["df"], results)
+    total, details, _ = score_df(history[-1]["df"], results, match_lookup)
     cnt = make_cnt(details)
     leaderboard.append({
         "team":        team,
@@ -281,7 +345,8 @@ with tab_board:
         st.caption(
             f"채점 완료: {len(results)} / {len(matches)}경기  ·  "
             f"참가 팀: {len(leaderboard)}팀  ·  "
-            f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선"
+            f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선  ·  "
+            f"{AUTO_REFRESH_MS // 1000}초마다 자동 새로고침"
         )
     with col_btn:
         st.markdown("<div style='padding-top:26px'>", unsafe_allow_html=True)
@@ -332,8 +397,8 @@ with tab_board:
             if is_open:
                 with st.container():
                     st.markdown(
-                        f"<div style='margin-left:8px;padding:12px 16px;"
-                        f"border-left:3px solid rgba(128,128,128,0.4)'>",
+                        "<div style='margin-left:8px;padding:12px 16px;"
+                        "border-left:3px solid rgba(128,128,128,0.4)'>",
                         unsafe_allow_html=True,
                     )
 
@@ -350,12 +415,21 @@ with tab_board:
                         st.caption("채점 가능한 경기가 없어요. results.json에 결과가 입력되면 반영됩니다.")
                     else:
                         df_show = detail_table(details, match_map, results)
-                        st.dataframe(
-                            df_show.style.apply(highlight_pts, axis=1),
-                            use_container_width=True,
-                            hide_index=True,
-                        )
                         st.markdown(pills_html(row["cnt"]), unsafe_allow_html=True)
+
+                        # 조별로 테이블을 나눠서 표시 (A조 -> ... -> L조 -> 조 정보 없음)
+                        groups = sorted(
+                            df_show["조"].unique(),
+                            key=lambda g: (g == "조 정보 없음", g),
+                        )
+                        for g in groups:
+                            st.markdown(f"**{g}**")
+                            g_df = df_show[df_show["조"] == g].drop(columns=["조"])
+                            st.dataframe(
+                                g_df.style.apply(highlight_pts, axis=1),
+                                width="stretch",
+                                hide_index=True,
+                            )
 
                     # 제출 히스토리
                     history = row["history"]
@@ -365,7 +439,7 @@ with tab_board:
                         hist_rows = []
                         prev_score = None
                         for idx, entry in enumerate(history):
-                            h_score, _ = score_df(entry["df"], results)
+                            h_score, _, _ = score_df(entry["df"], results, match_lookup)
                             if prev_score is None:
                                 change = "—"
                             else:
@@ -382,7 +456,7 @@ with tab_board:
 
                         st.dataframe(
                             pd.DataFrame(hist_rows),
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                         )
 
@@ -397,20 +471,21 @@ with tab_board:
 with tab_upload:
     st.subheader("📤 예측 CSV 업로드")
     st.caption(
-        "필수 컬럼: `match_id`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`  "
-        "(확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
+        "필수 컬럼: `team1`, `team2`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`  "
+        "(팀 이름으로 경기를 찾아 채점합니다 — team1/team2 순서가 바뀌어도 매칭됩니다. "
+        "확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
         "— 같은 팀 이름으로 다시 제출하면 기록이 누적됩니다."
     )
 
     template_df = pd.DataFrame([
-        {"match_id": m["id"], "team1": m["team1"], "team2": m["team2"],
+        {"team1": m["team1"], "team2": m["team2"],
          "team1_score": 0, "team2_score": 0, "team1_prob": 0.5, "team2_prob": 0.5}
         for m in matches
     ])
 
     col_tbl, col_dl = st.columns([3, 1])
     with col_tbl:
-        st.dataframe(template_df, use_container_width=True, hide_index=True)
+        st.dataframe(template_df, width="stretch", hide_index=True)
     with col_dl:
         st.download_button(
             "📥 빈 템플릿",
@@ -430,9 +505,12 @@ with tab_upload:
     st.divider()
 
     team_name = st.text_input("팀 이름", placeholder="예) TeamAlpha").strip()
-    uploaded  = st.file_uploader("예측 CSV 파일", type=["csv"])
+    uploaded  = st.file_uploader(
+        "예측 CSV 파일", type=["csv"],
+        key=f"uploader_{st.session_state.uploader_key}",
+    )
 
-    if st.button("🚀 제출하기", type="primary", use_container_width=True):
+    if st.button("🚀 제출하기", type="primary", width="stretch"):
         if not team_name:
             st.error("팀 이름을 입력해주세요.")
         elif not uploaded:
@@ -450,7 +528,18 @@ with tab_upload:
                     df[SUBMISSION_COLS].to_csv(
                         team_dir / f"{ts}.csv", index=False
                     )
-                    st.success(f"✅ **{team_name}** 제출 완료! ({len(df)}경기)")
+
+                    _, _, unmatched = score_df(df, results, match_lookup)
+                    msg = f"{team_name} 제출 완료! ({len(df)}경기)"
+                    if unmatched:
+                        msg += f" — 팀 이름을 못 찾은 행 {unmatched}개는 채점에서 제외됩니다."
+
+                    # rerun 직후에도 보이도록 메시지를 session_state에 남기고,
+                    # 업로더 key를 바꿔 파일 선택 상태를 초기화한다
+                    st.session_state.flash = msg
+                    st.session_state.uploader_key += 1
+                    # 리더보드는 항상 전부 접힌 상태로 시작
+                    st.session_state.open_team = None
                     st.rerun()
             except Exception as e:
                 st.error(f"파일 읽기 실패: {e}")
