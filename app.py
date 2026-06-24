@@ -2,11 +2,13 @@
 app.py — 월드컵 예측 CSV 리더보드
 """
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+KST = timezone(timedelta(hours=9))  # 배포 서버는 보통 UTC라 명시적으로 한국 시간 사용
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 MATCHES_PATH      = Path(__file__).parent / "matches.json"
@@ -710,7 +712,7 @@ elif st.session_state.active_view == VIEW_UPLOAD:
                 else:
                     team_dir = SUBMISSIONS_DIR / team_name
                     team_dir.mkdir(exist_ok=True)
-                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    ts = datetime.now(KST).strftime("%Y%m%d_%H%M%S")
                     df[SUBMISSION_COLS].to_csv(
                         team_dir / f"{ts}.csv", index=False
                     )
