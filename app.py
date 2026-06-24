@@ -213,19 +213,26 @@ def calc_score(pred_team1: int, pred_team2: int,
     return {"pts": 0, "label": "❌ 모두 틀림"}
 
 
-def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, list[dict], int]:
+def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, list[dict], int, list[dict]]:
     """팀 이름(team1, team2)으로 경기를 찾아 채점한다. 조별리그(type이 "Group Stage"로
     시작하는 행, 조는 무관)만 채점 대상으로 삼는다 — 조별리그에서 만난 두 팀이
     토너먼트에서 다시 만날 수 있어, 이름만으로는 어느 단계 경기인지 구분이 안 되기
     때문이다. 토너먼트 단계 행과, 매칭되는 경기가 없는 행은 모두 unmatched로
-    집계하고 건너뛴다."""
+    집계하고 건너뛴다.
+
+    한 행의 값이 깨져 있어도(빈 칸, 숫자가 아닌 값 등) 그 행만 건너뛰고 나머지는
+    정상 채점한다 — 한 팀의 입력 오류가 전체 리더보드를 죽이면 안 되기 때문이다.
+    문제가 있었던 행은 invalid_rows에 어떤 경기·어떤 문제였는지 기록해 반환한다."""
     total, details, unmatched = 0, [], 0
+    invalid_rows: list[dict] = []
     for _, row in df.iterrows():
+        team1, team2 = row.get("team1", "?"), row.get("team2", "?")
+
         if not str(row.get("type", "")).strip().lower().startswith("group stage"):
             unmatched += 1
             continue
 
-        hit = match_lookup.get((_norm(row["team1"]), _norm(row["team2"])))
+        hit = match_lookup.get((_norm(team1), _norm(team2)))
         if hit is None:
             unmatched += 1
             continue
@@ -237,12 +244,16 @@ def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, 
         r = results[mid]
         real_team1, real_team2 = r["team1_score"], r["team2_score"]
 
-        if not swapped:
-            pred_team1, pred_team2 = int(row["team1_score"]), int(row["team2_score"])
-            prob1, prob2           = float(row["team1_prob"]), float(row["team2_prob"])
-        else:  # CSV에 팀 순서가 반대로 적혀 있던 경우 -> 점수도 맞춰서 뒤집어 비교
-            pred_team1, pred_team2 = int(row["team2_score"]), int(row["team1_score"])
-            prob1, prob2           = float(row["team2_prob"]), float(row["team1_prob"])
+        try:
+            if not swapped:
+                pred_team1, pred_team2 = int(row["team1_score"]), int(row["team2_score"])
+                prob1, prob2           = float(row["team1_prob"]), float(row["team2_prob"])
+            else:  # CSV에 팀 순서가 반대로 적혀 있던 경우 -> 점수도 맞춰서 뒤집어 비교
+                pred_team1, pred_team2 = int(row["team2_score"]), int(row["team1_score"])
+                prob1, prob2           = float(row["team2_prob"]), float(row["team1_prob"])
+        except (TypeError, ValueError) as e:
+            invalid_rows.append({"team1": team1, "team2": team2, "error": str(e)})
+            continue
 
         base = calc_score(pred_team1, pred_team2, real_team1, real_team2)
 
@@ -255,7 +266,7 @@ def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, 
             "team2_prob": prob2,
             **base,
         })
-    return total, details, unmatched
+    return total, details, unmatched, invalid_rows
 
 
 def make_cnt(details: list[dict]) -> dict:
@@ -326,21 +337,40 @@ all_subs           = load_submissions()
 
 leaderboard: list[dict] = []
 for team, history in all_subs.items():
-    total, details, _ = score_df(history[-1]["df"], results, match_lookup)
-    cnt = make_cnt(details)
-    leaderboard.append({
-        "team":        team,
-        "score":       total,
-        "scored":      len(details),
-        "submissions": len(history),
-        "details":     details,
-        "history":     history,
-        "cnt":         cnt,
-    })
+    # 한 팀의 제출 파일이 깨져 있어도(예상 못 한 형태의 값 등) 그 팀만 "오류" 상태로
+    # 표시하고 다른 팀의 리더보드는 정상 작동해야 한다 — 한 팀 문제로 전체가
+    # 죽으면 안 되므로 팀 단위로 예외를 격리한다.
+    try:
+        total, details, unmatched, invalid_rows = score_df(history[-1]["df"], results, match_lookup)
+        cnt = make_cnt(details)
+        leaderboard.append({
+            "team":         team,
+            "score":        total,
+            "scored":       len(details),
+            "submissions":  len(history),
+            "details":      details,
+            "history":      history,
+            "cnt":          cnt,
+            "invalid_rows": invalid_rows,
+            "error":        None,
+        })
+    except Exception as e:
+        leaderboard.append({
+            "team":         team,
+            "score":        0,
+            "scored":       0,
+            "submissions":  len(history),
+            "details":      [],
+            "history":      history,
+            "cnt":          {10: 0, 6: 0, 3: 0, 1: 0, 0: 0},
+            "invalid_rows": [],
+            "error":        str(e),
+        })
 
-# 동점 시 tiebreaker: 10점 횟수 → 6점 → 3점 → 1점 순으로 우선순위
+# 동점 시 tiebreaker: 10점 횟수 → 6점 → 3점 → 1점 순으로 우선순위.
+# 오류가 있는 팀은 항상 맨 뒤로 보낸다.
 def _rank_key(r):
-    return (-r["score"], -r["cnt"][10], -r["cnt"][6], -r["cnt"][3], -r["cnt"][1])
+    return (r["error"] is not None, -r["score"], -r["cnt"][10], -r["cnt"][6], -r["cnt"][3], -r["cnt"][1])
 
 leaderboard.sort(key=_rank_key)
 
@@ -475,7 +505,8 @@ if st.session_state.active_view == VIEW_BOARD:
         max_score = max(r["score"] for r in leaderboard) or 1
 
         for i, row in enumerate(leaderboard):
-            medal     = MEDALS.get(ranks[i] - 1, f"{ranks[i]}위")
+            has_error = row["error"] is not None
+            medal     = "⚠️" if has_error else MEDALS.get(ranks[i] - 1, f"{ranks[i]}위")
             team      = row["team"]
             score     = row["score"]
             is_open   = st.session_state.open_team == team
@@ -489,16 +520,19 @@ if st.session_state.active_view == VIEW_BOARD:
             )
             with c_team:
                 st.markdown(f"**{team}**")
-                st.caption(f"제출 {row['submissions']}회 · {row['scored']}경기 채점")
+                if has_error:
+                    st.caption("⚠️ 제출 파일에 문제가 있어요 — 상세 보기에서 확인하세요")
+                else:
+                    st.caption(f"제출 {row['submissions']}회 · {row['scored']}경기 채점")
 
             with c_bar:
                 st.markdown("<div style='margin-top:14px'>", unsafe_allow_html=True)
-                st.progress(score / max_score)
+                st.progress(0 if has_error else score / max_score)
                 st.markdown("</div>", unsafe_allow_html=True)
 
             c_score.markdown(
                 f"<div style='font-size:20px;font-weight:700;padding-top:8px;text-align:right'>"
-                f"{score}점</div>",
+                f"{'오류' if has_error else f'{score}점'}</div>",
                 unsafe_allow_html=True,
             )
 
@@ -525,8 +559,28 @@ if st.session_state.active_view == VIEW_BOARD:
                         unsafe_allow_html=True,
                     )
 
+                    if row["error"] is not None:
+                        st.error(
+                            f"이 팀의 최신 제출 파일을 채점하는 중 오류가 발생했습니다:\n\n"
+                            f"`{row['error']}`\n\n"
+                            f"CSV의 `team1_score`/`team2_score`/`team1_prob`/`team2_prob` 값이 "
+                            f"비어있거나 숫자가 아닌 행이 있는지 확인해주세요."
+                        )
+
+                    invalid_rows = row.get("invalid_rows") or []
+                    if invalid_rows:
+                        st.warning(
+                            f"⚠️ 값이 잘못돼 채점에서 제외된 행 {len(invalid_rows)}개:\n\n"
+                            + "\n".join(
+                                f"- {r['team1']} vs {r['team2']} ({r['error']})"
+                                for r in invalid_rows
+                            )
+                        )
+
                     details = row["details"]
-                    if not details:
+                    if row["error"] is not None:
+                        pass
+                    elif not details:
                         st.caption("채점 가능한 경기가 없어요. results.json에 결과가 입력되면 반영됩니다.")
                     else:
                         df_show = detail_table(details, match_map, results)
@@ -554,8 +608,16 @@ if st.session_state.active_view == VIEW_BOARD:
                         hist_rows = []
                         prev_score = None
                         for idx, entry in enumerate(history):
-                            h_score, _, _ = score_df(entry["df"], results, match_lookup)
-                            if prev_score is None:
+                            # 과거 제출 회차 하나가 깨져 있어도 그 회차만 "오류"로
+                            # 표시하고 나머지 회차/팀에는 영향이 없게 격리한다
+                            try:
+                                h_score, _, _, _ = score_df(entry["df"], results, match_lookup)
+                            except Exception:
+                                h_score = None
+
+                            if h_score is None:
+                                change = "⚠️ 오류"
+                            elif prev_score is None:
                                 change = "—"
                             else:
                                 diff   = h_score - prev_score
@@ -563,11 +625,12 @@ if st.session_state.active_view == VIEW_BOARD:
                             hist_rows.append({
                                 "회차":      f"{idx+1}차",
                                 "제출 시각": fmt_ts(entry["ts"]),
-                                "점수":      h_score,
+                                "점수":      h_score if h_score is not None else "오류",
                                 "변화":      change,
                                 "비고":      "← 현재" if idx == len(history) - 1 else "",
                             })
-                            prev_score = h_score
+                            if h_score is not None:
+                                prev_score = h_score
 
                         st.dataframe(
                             pd.DataFrame(hist_rows),
@@ -652,10 +715,14 @@ elif st.session_state.active_view == VIEW_UPLOAD:
                         team_dir / f"{ts}.csv", index=False
                     )
 
-                    _, _, unmatched = score_df(df, results, match_lookup)
+                    _, _, unmatched, invalid_rows = score_df(df, results, match_lookup)
                     msg = f"{team_name} 제출 완료! ({len(df)}경기)"
                     if unmatched:
                         msg += f" — 팀 이름을 못 찾은 행 {unmatched}개는 채점에서 제외됩니다."
+                    if invalid_rows:
+                        bad = ", ".join(f"{r['team1']} vs {r['team2']}" for r in invalid_rows[:3])
+                        more = f" 등 {len(invalid_rows)}건" if len(invalid_rows) > 3 else ""
+                        msg += f" — 점수/확률 값이 잘못된 행({bad}{more})은 채점에서 제외됩니다."
 
                     # rerun 직후에도 보이도록 메시지를 session_state에 남기고,
                     # 업로더 key를 바꿔 파일 선택 상태를 초기화한다
