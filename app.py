@@ -214,10 +214,17 @@ def calc_score(pred_team1: int, pred_team2: int,
 
 
 def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, list[dict], int]:
-    """팀 이름(team1, team2)으로 경기를 찾아 채점한다.
-    매칭되는 경기가 없는 행은 unmatched로 집계하고 건너뛴다."""
+    """팀 이름(team1, team2)으로 경기를 찾아 채점한다. 조별리그(type이 "Group Stage"로
+    시작하는 행, 조는 무관)만 채점 대상으로 삼는다 — 조별리그에서 만난 두 팀이
+    토너먼트에서 다시 만날 수 있어, 이름만으로는 어느 단계 경기인지 구분이 안 되기
+    때문이다. 토너먼트 단계 행과, 매칭되는 경기가 없는 행은 모두 unmatched로
+    집계하고 건너뛴다."""
     total, details, unmatched = 0, [], 0
     for _, row in df.iterrows():
+        if not str(row.get("type", "")).startswith("Group Stage"):
+            unmatched += 1
+            continue
+
         hit = match_lookup.get((_norm(row["team1"]), _norm(row["team2"])))
         if hit is None:
             unmatched += 1
@@ -581,8 +588,7 @@ elif st.session_state.active_view == VIEW_UPLOAD:
     st.caption(
         "필수 컬럼: `team1`, `team2`, `team1_score`, `team2_score`, `team1_prob`, `team2_prob`, `type`  "
         "(팀 이름으로 경기를 찾아 채점합니다 — team1/team2 순서가 바뀌어도 매칭됩니다. "
-        "type은 표시용 참고 정보일 뿐 채점에는 쓰이지 않습니다 — 아직 치르지 않았거나 "
-        "목록에 없는 경기 행은 조용히 채점에서 제외됩니다. "
+        "아직 치르지 않았거나 목록에 없는 경기 행은 조용히 채점에서 제외됩니다. "
         "확률은 0~1 사이 값, 둘의 합이 1을 넘지 않아야 함)  "
         "— 같은 팀 이름으로 다시 제출하면 기록이 누적됩니다."
     )
