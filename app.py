@@ -221,7 +221,7 @@ def score_df(df: pd.DataFrame, results: dict, match_lookup: dict) -> tuple[int, 
     집계하고 건너뛴다."""
     total, details, unmatched = 0, [], 0
     for _, row in df.iterrows():
-        if not str(row.get("type", "")).startswith("Group Stage"):
+        if not str(row.get("type", "")).strip().lower().startswith("group stage"):
             unmatched += 1
             continue
 
