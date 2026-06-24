@@ -48,10 +48,22 @@ def main():
             override = json.load(f)
         for om in override["matches"]:
             if om["id"] in matches_by_id:
+                # matches_by_id의 값은 data["matches"] 원소에 대한 참조라서,
+                # 여기서 갱신하면 data 자체도 같이 최신화된다.
                 matches_by_id[om["id"]]["status"] = om["status"]
                 matches_by_id[om["id"]]["score"]  = om["score"]
                 updated += 1
         print(f"true_result.json 기준 {updated}경기 결과를 최신으로 덮어씀")
+
+        # group_stage_result.json 자체도 병합된 최신 상태로 다시 저장한다.
+        # load_group_standings()가 이 파일을 직접 읽으므로, 안 그러면 조별리그
+        # 순위표가 true_result.json 갱신 이전의 옛 결과로 계속 멈춰 있게 된다.
+        if "resultSet" in data:
+            data["resultSet"]["played"] = sum(
+                1 for m in matches_by_id.values() if m["status"] == "FINISHED"
+            )
+        with open(SRC_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
     matches_out = []
     results_out = {}

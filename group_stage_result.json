@@ -6,7 +6,7 @@
     "count": 104,
     "first": "2026-06-11",
     "last": "2026-07-19",
-    "played": 44
+    "played": 48
   },
   "competition": {
     "id": 2000,
@@ -2943,7 +2943,7 @@
       },
       "id": 537405,
       "utcDate": "2026-06-23T17:00:00Z",
-      "status": "TIMED",
+      "status": "FINISHED",
       "matchday": 2,
       "stage": "GROUP_STAGE",
       "group": "GROUP_K",
@@ -2963,15 +2963,15 @@
         "crest": "https://crests.football-data.org/8070.png"
       },
       "score": {
-        "winner": null,
+        "winner": "HOME_TEAM",
         "duration": "REGULAR",
         "fullTime": {
-          "home": null,
-          "away": null
+          "home": 5,
+          "away": 0
         },
         "halfTime": {
-          "home": null,
-          "away": null
+          "home": 3,
+          "away": 0
         }
       },
       "odds": {
@@ -3002,7 +3002,7 @@
       },
       "id": 537411,
       "utcDate": "2026-06-23T20:00:00Z",
-      "status": "TIMED",
+      "status": "FINISHED",
       "matchday": 2,
       "stage": "GROUP_STAGE",
       "group": "GROUP_L",
@@ -3022,15 +3022,15 @@
         "crest": "https://crests.football-data.org/ghana.svg"
       },
       "score": {
-        "winner": null,
+        "winner": "DRAW",
         "duration": "REGULAR",
         "fullTime": {
-          "home": null,
-          "away": null
+          "home": 0,
+          "away": 0
         },
         "halfTime": {
-          "home": null,
-          "away": null
+          "home": 0,
+          "away": 0
         }
       },
       "odds": {
@@ -3061,7 +3061,7 @@
       },
       "id": 537412,
       "utcDate": "2026-06-23T23:00:00Z",
-      "status": "TIMED",
+      "status": "FINISHED",
       "matchday": 2,
       "stage": "GROUP_STAGE",
       "group": "GROUP_L",
@@ -3081,15 +3081,15 @@
         "crest": "https://crests.football-data.org/799.svg"
       },
       "score": {
-        "winner": null,
+        "winner": "AWAY_TEAM",
         "duration": "REGULAR",
         "fullTime": {
-          "home": null,
-          "away": null
+          "home": 0,
+          "away": 1
         },
         "halfTime": {
-          "home": null,
-          "away": null
+          "home": 0,
+          "away": 0
         }
       },
       "odds": {
@@ -3120,7 +3120,7 @@
       },
       "id": 537406,
       "utcDate": "2026-06-24T02:00:00Z",
-      "status": "TIMED",
+      "status": "FINISHED",
       "matchday": 2,
       "stage": "GROUP_STAGE",
       "group": "GROUP_K",
@@ -3140,15 +3140,15 @@
         "crest": "https://crests.football-data.org/congo_dr.svg"
       },
       "score": {
-        "winner": null,
+        "winner": "HOME_TEAM",
         "duration": "REGULAR",
         "fullTime": {
-          "home": null,
-          "away": null
+          "home": 1,
+          "away": 0
         },
         "halfTime": {
-          "home": null,
-          "away": null
+          "home": 0,
+          "away": 0
         }
       },
       "odds": {
