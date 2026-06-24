@@ -1,9 +1,14 @@
 """
-group_stage_result.json(football-data.org 포맷, 조별리그+토너먼트 전체 104경기)을
-읽어 matches.json, results.json을 재생성한다.
+group_stage_result.json(football-data.org 포맷, 조별리그+토너먼트 전체 104경기 구조)을
+기본 골격으로 matches.json, results.json을 재생성한다.
 
-경기 결과가 갱신되면(=group_stage_result.json을 새로 받으면) 이 스크립트만 다시
-실행하면 matches.json/results.json이 최신 상태로 갱신된다.
+true_result.json이 같은 폴더에 있으면, 그 안의 경기들(id 기준)로 status/score를
+덮어쓴다 — true_result.json은 보통 더 최신 스냅샷이지만 조별리그 경기 전체를
+다 담고 있지 않을 수 있어서, "전체 구조는 group_stage_result.json, 최신 결과는
+true_result.json"으로 합치는 방식이다.
+
+경기 결과가 갱신되면(=true_result.json을 새로 받으면) 이 스크립트만 다시 실행하면
+matches.json/results.json이 최신 상태로 갱신된다.
 
     python3 build_data.py
 
@@ -15,9 +20,10 @@ import json
 from pathlib import Path
 
 BASE = Path(__file__).parent
-SRC_PATH      = BASE / "group_stage_result.json"
-MATCHES_PATH  = BASE / "matches.json"
-RESULTS_PATH  = BASE / "results.json"
+SRC_PATH       = BASE / "group_stage_result.json"
+OVERRIDE_PATH  = BASE / "true_result.json"
+MATCHES_PATH   = BASE / "matches.json"
+RESULTS_PATH   = BASE / "results.json"
 
 # group_stage_result.json의 stage 값 -> 제출 CSV의 type 컬럼 표기값
 STAGE_LABEL = {
@@ -34,12 +40,24 @@ STAGE_LABEL = {
 def main():
     with open(SRC_PATH, encoding="utf-8") as f:
         data = json.load(f)
+    matches_by_id = {m["id"]: m for m in data["matches"]}
+
+    updated = 0
+    if OVERRIDE_PATH.exists():
+        with open(OVERRIDE_PATH, encoding="utf-8") as f:
+            override = json.load(f)
+        for om in override["matches"]:
+            if om["id"] in matches_by_id:
+                matches_by_id[om["id"]]["status"] = om["status"]
+                matches_by_id[om["id"]]["score"]  = om["score"]
+                updated += 1
+        print(f"true_result.json 기준 {updated}경기 결과를 최신으로 덮어씀")
 
     matches_out = []
     results_out = {}
     skipped_tbd = 0
 
-    for m in data["matches"]:
+    for m in matches_by_id.values():
         home, away = m["homeTeam"].get("name"), m["awayTeam"].get("name")
         if not home or not away:
             skipped_tbd += 1  # 대진 미정 토너먼트 슬롯 — 아직 받을 수 없음
