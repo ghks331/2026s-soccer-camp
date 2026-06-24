@@ -491,7 +491,8 @@ if st.session_state.active_view == VIEW_BOARD:
     with col_h:
         st.subheader("🏆 전체 순위")
         st.caption(
-            f"채점 완료: {len(results)} / {len(matches)}경기  ·  "
+            f"채점 완료: {len(results)} / {len(matches)}경기 "
+            f"(현재 받을 수 있는 최대 점수: {len(results) * 10}점)  ·  "
             f"참가 팀: {len(leaderboard)}팀  ·  "
             f"동점 시 10점 → 6점 → 3점 → 1점 횟수 순 우선"
         )
